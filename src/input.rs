@@ -399,12 +399,10 @@ fn read_input_device(device_path: &Path, sender: &Sender<WindowEvent>) {
                         println!("Touch move x: {}, y: {}", slot_a.x, slot_a.y);
                         sender
                             .send(WindowEvent::Scroll(
-                                ScrollLocation::Delta(
-                                    (TypedVector2D::new(
-                                        (slot_a.x - last_x) as f32,
-                                        (slot_a.y - last_y) as f32,
-                                    )),
-                                ),
+                                ScrollLocation::Delta(TypedVector2D::new(
+                                    (slot_a.x - last_x) as f32,
+                                    (slot_a.y - last_y) as f32,
+                                )),
                                 TypedPoint2D::new(slot_a.x, slot_a.y),
                                 TouchEventType::Move,
                             ))

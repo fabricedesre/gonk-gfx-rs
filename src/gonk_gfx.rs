@@ -128,6 +128,15 @@ pub struct hwc_rect {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
+pub struct hwc_frect {
+    left: f32,
+    top: f32,
+    right: f32,
+    bottom: f32,
+}
+
+#[repr(C)]
 pub struct hwc_region {
     num_rects: i32,
     rects: *const hwc_rect,
@@ -149,14 +158,15 @@ pub struct hwc_layer {
     handle: *const native_handle,
     transform: u32,
     blending: i32,
-    source_crop: hwc_rect, // If HWC 1.3, then this takes floats
+    source_crop: hwc_frect, // If HWC 1.3, then this takes floats
     display_frame: hwc_rect,
     visible_region_screen: hwc_region,
     acquire_fence_fd: c_int,
     release_fence_fd: c_int,
     plane_alpha: u8,
     pad: [u8; 3],
-    reserved: [i32; (24 - 19)],
+    surface_damage: hwc_region,
+    reserved: [u8; (96 - 84)],
 }
 
 #[repr(C)]
@@ -571,8 +581,13 @@ impl GonkNativeWindow {
     }
 
     fn draw(&mut self, buf: *mut ANativeWindowBuffer, fence: c_int) -> c_int {
-        info!("draw");
         let gonkbuf: &mut GonkNativeWindowBuffer = unsafe { transmute(buf) };
+        info!(
+            "draw {}x{} {}",
+            gonkbuf.buffer.width,
+            gonkbuf.buffer.height,
+            size_of::<hwc_layer>() as i32,
+        );
         let rect = hwc_rect {
             left: 0,
             top: 0,
@@ -593,11 +608,11 @@ impl GonkNativeWindow {
                     handle: ptr::null(),
                     transform: 0,
                     blending: 0,
-                    source_crop: hwc_rect {
-                        left: 0,
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
+                    source_crop: hwc_frect {
+                        left: 0.0,
+                        top: 0.0,
+                        right: 0.0,
+                        bottom: 0.0,
                     },
                     display_frame: hwc_rect {
                         left: 0,
@@ -613,7 +628,11 @@ impl GonkNativeWindow {
                     release_fence_fd: -1,
                     plane_alpha: 0xff,
                     pad: [0, 0, 0],
-                    reserved: [0, 0, 0, 0, 0],
+                    surface_damage: hwc_region {
+                        num_rects: 0,
+                        rects: ptr::null(),
+                    },
+                    reserved: [0; 12],
                 },
                 hwc_layer {
                     composition_type: HWC_FRAMEBUFFER_TARGET,
@@ -622,7 +641,12 @@ impl GonkNativeWindow {
                     handle: gonkbuf.buffer.handle,
                     transform: 0,
                     blending: 0,
-                    source_crop: rect,
+                    source_crop: hwc_frect {
+                        left: 0.0,
+                        top: 0.0,
+                        right: gonkbuf.buffer.width as f32,
+                        bottom: gonkbuf.buffer.height as f32,
+                    },
                     display_frame: rect,
                     visible_region_screen: hwc_region {
                         num_rects: 1,
@@ -632,13 +656,16 @@ impl GonkNativeWindow {
                     release_fence_fd: -1,
                     plane_alpha: 0xff,
                     pad: [0, 0, 0],
-                    reserved: [0, 0, 0, 0, 0],
+                    surface_damage: hwc_region {
+                        num_rects: 0,
+                        rects: ptr::null(),
+                    },
+                    reserved: [0; 12],
                 },
             ],
         };
         unsafe {
-            let mut displays: [*mut hwc_display_contents; 3] =
-                [&mut list, ptr::null_mut(), ptr::null_mut()];
+            let mut displays: [*mut hwc_display_contents; 1] = [&mut list];
             let prep_res = ((*self.hwc_dev).prepare)(
                 self.hwc_dev,
                 displays.len() as size_t,

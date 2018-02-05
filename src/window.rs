@@ -140,8 +140,8 @@ impl Window {
 
         let gl = unsafe { gl::GlesFns::load_with(|s| egl::get_proc_address(s) as *const _) };
 
-        gl.clear_color(1f32, 0f32, 0f32, 1f32);
-        // gl.clear(gl::COLOR_BUFFER_BIT);
+        gl.clear_color(1f32, 1f32, 0f32, 1f32);
+        gl.clear(gl::COLOR_BUFFER_BIT);
         egl::swap_buffers(dpy, eglwindow);
 
         // Create our window object.
