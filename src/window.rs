@@ -73,7 +73,7 @@ impl Window {
             assert_eq!(ret1, 0, "Failed to get gralloc module!");
             let cstr2 = CString::new("gpu0").unwrap();
             let ret2 = ((*(*gralloc_mod).methods).open)(gralloc_mod, cstr2.as_ptr(), &mut device);
-            assert_eq!(ret2, 0, "Failed to get gralloc module!");
+            assert_eq!(ret2, 0, "Failed to open gpu0 on gralloc module!");
             alloc_dev = transmute(device);
         }
 
@@ -89,19 +89,14 @@ impl Window {
 
         info!("EGL initialized {}.{}", major, minor);
 
+        let configs = egl::get_configs(dpy, 10);
+        info!("EGL configs.count is {}", configs.count);
+
         let conf_attr = [
             egl::EGL_SURFACE_TYPE,
             egl::EGL_WINDOW_BIT,
             egl::EGL_RENDERABLE_TYPE,
             egl::EGL_OPENGL_ES2_BIT,
-            egl::EGL_RED_SIZE,
-            6,
-            egl::EGL_GREEN_SIZE,
-            5,
-            egl::EGL_BLUE_SIZE,
-            6,
-            egl::EGL_ALPHA_SIZE,
-            0,
             egl::EGL_NONE,
         ];
 
@@ -121,7 +116,7 @@ impl Window {
         assert!(eglwindow.is_some());
         let eglwindow = eglwindow.unwrap();
 
-        let ctx_attr = [egl::EGL_CONTEXT_CLIENT_VERSION, 2, egl::EGL_NONE, 0];
+        let ctx_attr = [egl::EGL_CONTEXT_CLIENT_VERSION, 2, egl::EGL_NONE];
 
         let ctx =
             unsafe { egl::create_context(dpy, config, transmute(egl::EGL_NO_CONTEXT), &ctx_attr) };
@@ -140,9 +135,7 @@ impl Window {
 
         let gl = unsafe { gl::GlesFns::load_with(|s| egl::get_proc_address(s) as *const _) };
 
-        gl.clear_color(1f32, 1f32, 0f32, 1f32);
-        gl.clear(gl::COLOR_BUFFER_BIT);
-        egl::swap_buffers(dpy, eglwindow);
+        gl.viewport(0, 0, width, height);
 
         // Create our window object.
         let window = Window {
@@ -157,10 +150,17 @@ impl Window {
 
         Rc::new(window)
     }
+
+    pub fn fill_color(&self, r: f32, g: f32, b: f32, a: f32) {
+        self.gl.clear_color(r, g, b, a);
+        self.gl.clear(gl::COLOR_BUFFER_BIT);
+        egl::swap_buffers(self.dpy, self.surf);
+    }
 }
 
 impl Drop for Window {
     fn drop(&mut self) {
+        info!("Dropping Window");
         unsafe {
             ((*self.native_window).window.common.dec_ref)(&mut (*self.native_window).window.common);
         }

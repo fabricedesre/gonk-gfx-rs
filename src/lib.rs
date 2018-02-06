@@ -14,5 +14,4 @@ extern crate libc;
 extern crate log;
 
 pub mod gonk_gfx;
-pub mod input;
 pub mod window;
