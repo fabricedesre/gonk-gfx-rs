@@ -199,6 +199,11 @@ pub const HWC_POWER_MODE_DOZE: c_int = 1;
 pub const HWC_POWER_MODE_NORMAL: c_int = 2;
 pub const HWC_POWER_MODE_DOZE_SUSPEND: c_int = 3;
 
+pub fn hwc_api_version(maj: u32, min: u32) -> u32 {
+    // HARDWARE_MAKE_API_VERSION_2, from Android hardware.h
+    (((maj & 0xff) << 24) | ((min & 0xff) << 16) | (1 & 0xffff))
+}
+
 #[repr(C)]
 pub struct hwc_composer_device {
     pub common: hw_device,
@@ -330,6 +335,7 @@ extern "C" fn set_swap_interval(_base: *mut ANativeWindow, _interval: c_int) -> 
 const NATIVE_WINDOW_WIDTH: c_int = 0;
 const NATIVE_WINDOW_HEIGHT: c_int = 1;
 const NATIVE_WINDOW_FORMAT: c_int = 2;
+const NATIVE_WINDOW_SET_CROP: c_int = 3;
 const NATIVE_WINDOW_DEFAULT_WIDTH: c_int = 6;
 const NATIVE_WINDOW_DEFAULT_HEIGHT: c_int = 7;
 const NATIVE_WINDOW_TRANSFORM_HINT: c_int = 8;
@@ -354,6 +360,11 @@ extern "C" fn query(base: *const ANativeWindow, what: c_int, value: *mut c_int) 
                 *value = window.format;
                 0
             }
+            NATIVE_WINDOW_SET_CROP => {
+                // TODO: save for later use?
+                0
+            }
+
             NATIVE_WINDOW_DEFAULT_WIDTH => {
                 *value = window.width;
                 0

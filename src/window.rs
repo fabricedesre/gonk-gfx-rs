@@ -42,6 +42,15 @@ impl Window {
             hwc_device = transmute(device);
             // Require HWC 1.1 or newer
             // XXX add HAL version function/macro
+            let version = (*hwc_device).common.version;
+            let mut msg = format!("unknown ({})", version);
+            for i in 1..5 {
+                if version == hwc_api_version(1, i) {
+                    msg = format!("1.{}", i);
+                }
+            }
+            println!("Using hwc api: {}", msg);
+
             assert!((*hwc_device).common.version > (1 << 8), "HWC too old!");
         }
 
@@ -88,9 +97,6 @@ impl Window {
         assert!(ret, "Failed to initialize EGL!");
 
         info!("EGL initialized {}.{}", major, minor);
-
-        let configs = egl::get_configs(dpy, 10);
-        info!("EGL configs.count is {}", configs.count);
 
         let conf_attr = [
             egl::EGL_SURFACE_TYPE,
