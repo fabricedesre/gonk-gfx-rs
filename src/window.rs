@@ -5,13 +5,10 @@
 //! A windowing implementation using Gonk interfaces.
 
 use egl::{self, EGLContext, EGLDisplay, EGLSurface};
-use hardware::hw_get_module;
 use hwc::HwcDevice;
 use gleam::gl::{self, Gl};
 use gonk_gfx::*;
-use std::ffi::CString;
 use std::mem::transmute;
-use std::ptr;
 use std::rc::Rc;
 
 /// The type of a window.
@@ -32,19 +29,6 @@ impl Window {
         let hwc = HwcDevice::new();
         assert!(hwc.is_some(), "Failed to get the HWC device");
         let hwc = hwc.unwrap();
-
-        let mut gralloc_mod = ptr::null();
-        let alloc_dev: *mut alloc_device;
-        unsafe {
-            let mut device = ptr::null();
-            let cstr = CString::new("gralloc").unwrap();
-            let ret1 = hw_get_module(cstr.as_ptr(), &mut gralloc_mod);
-            assert_eq!(ret1, 0, "Failed to get gralloc module!");
-            let cstr2 = CString::new("gpu0").unwrap();
-            let ret2 = ((*(*gralloc_mod).methods).open)(gralloc_mod, cstr2.as_ptr(), &mut device);
-            assert_eq!(ret2, 0, "Failed to open gpu0 on gralloc module!");
-            alloc_dev = transmute(device);
-        }
 
         let (width, height, _dpi) = hwc.get_dimensions_and_dpi();
 
@@ -74,7 +58,7 @@ impl Window {
         info!("Creating {}x{} native window", width, height);
 
         let usage = GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER;
-        let native_window = GonkNativeWindow::new(alloc_dev, hwc.native(), width, height, usage);
+        let native_window = GonkNativeWindow::new(hwc.native(), width, height, usage);
 
         let surf =
             unsafe { egl::create_window_surface(dpy, config, transmute(native_window), &[]) };

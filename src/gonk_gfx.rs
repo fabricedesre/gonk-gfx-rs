@@ -4,9 +4,9 @@
 
 // Low level Gonk graphics using the hardware composer.
 
-use hardware::*;
+use gralloc::*;
 use hwc::*;
-use libc::{c_char, c_int, c_void, close, size_t};
+use libc::{c_int, c_void, close, size_t};
 use std::mem::{size_of, transmute, zeroed};
 use std::ptr;
 
@@ -70,67 +70,6 @@ pub struct ANativeWindow {
         extern "C" fn(*mut ANativeWindow, *mut *mut ANativeWindowBuffer, *mut c_int) -> c_int,
     queue_buffer: extern "C" fn(*mut ANativeWindow, *mut ANativeWindowBuffer, c_int) -> c_int,
     cancel_buffer: extern "C" fn(*mut ANativeWindow, *mut ANativeWindowBuffer, c_int) -> c_int,
-}
-
-// system/core/include/system/graphics.h
-
-#[repr(C)]
-pub struct android_ycbcr {
-    y: *mut c_void,
-    cb: *mut c_void,
-    cr: *mut c_void,
-    ystride: size_t,
-    cstride: size_t,
-    chroma_step: size_t,
-    reserved: [u32; 8],
-}
-
-// hardware/libhardware/include/hardware/gralloc.h
-
-#[repr(C)]
-pub struct gralloc_module {
-    common: hw_module,
-    register_buffer: extern "C" fn(*const gralloc_module, *const native_handle) -> c_int,
-    unregister_buffer: extern "C" fn(*const gralloc_module, *const native_handle) -> c_int,
-    lock: extern "C" fn(
-        *const gralloc_module,
-        *const native_handle,
-        c_int,
-        c_int,
-        c_int,
-        c_int,
-        *mut *mut c_void,
-    ) -> c_int,
-    unlock: extern "C" fn(*const gralloc_module, *const native_handle) -> c_int,
-    perform: extern "C" fn(*const gralloc_module, c_int, ...) -> c_int,
-    lock_ycbcr: extern "C" fn(
-        *const gralloc_module,
-        *const native_handle,
-        c_int,
-        c_int,
-        c_int,
-        c_int,
-        c_int,
-        *mut android_ycbcr,
-    ) -> c_int,
-    reserved: [*mut c_void; 6],
-}
-
-#[repr(C)]
-pub struct alloc_device {
-    common: hw_device,
-    alloc: extern "C" fn(
-        *mut alloc_device,
-        c_int,
-        c_int,
-        c_int,
-        c_int,
-        *mut *const native_handle,
-        *mut c_int,
-    ) -> c_int,
-    free: extern "C" fn(*mut alloc_device, *const native_handle) -> c_int,
-    dump: Option<extern "C" fn(*mut alloc_device, *mut c_char, c_int)>,
-    reserved: [*mut c_void; 7],
 }
 
 #[repr(C)]
@@ -383,12 +322,12 @@ extern "C" fn gnw_dec_ref(base: *mut ANativeBase) {
 
 impl GonkNativeWindow {
     pub fn new(
-        alloc_dev: *mut alloc_device,
         hwc_dev: *mut hwc_composer_device,
         width: i32,
         height: i32,
         usage: c_int,
     ) -> *mut GonkNativeWindow {
+        let alloc_dev = get_gralloc_module();
         let window = Box::new(GonkNativeWindow {
             window: ANativeWindow {
                 common: ANativeBase {
