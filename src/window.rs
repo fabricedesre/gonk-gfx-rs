@@ -16,8 +16,8 @@ use std::rc::Rc;
 
 /// The type of a window.
 pub struct Window {
-    pub width: u32,
-    pub height: u32,
+    pub width: i32,
+    pub height: i32,
     hwc: HwcDevice,
     pub native_window: *mut GonkNativeWindow,
     pub dpy: EGLDisplay,
@@ -103,10 +103,10 @@ impl Window {
 
         // Create our window object.
         let window = Window {
-            width: width as u32,
-            height: height as u32,
+            width,
+            height,
             hwc,
-            native_window: native_window,
+            native_window,
             dpy,
             ctx,
             surf,
