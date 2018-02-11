@@ -137,6 +137,7 @@ pub struct hwc_procs {
 pub enum HwcApiVersion {
     Hwc1_3,
     Hwc1_4,
+    Hwc1_5,
 }
 
 impl HwcApiVersion {
@@ -150,6 +151,8 @@ impl HwcApiVersion {
             Some(HwcApiVersion::Hwc1_3)
         } else if HwcApiVersion::hwc_api_version(1, 4) == version {
             Some(HwcApiVersion::Hwc1_4)
+        } else if HwcApiVersion::hwc_api_version(1, 5) == version {
+            Some(HwcApiVersion::Hwc1_5)
         } else {
             None
         }
