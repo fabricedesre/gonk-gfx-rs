@@ -25,6 +25,19 @@ pub const HWC_POWER_MODE_DOZE: c_int = 1;
 pub const HWC_POWER_MODE_NORMAL: c_int = 2;
 pub const HWC_POWER_MODE_DOZE_SUSPEND: c_int = 3;
 
+pub const HWC_GEOMETRY_CHANGED: u32 = 1;
+
+pub const HWC_DISPLAY_PRIMARY: c_int = 0;
+pub const HWC_DISPLAY_EXTERNAL: c_int = 1; // HDMI, DP, etc.
+pub const HWC_DISPLAY_VIRTUAL: c_int = 2;
+
+pub const HWC_NUM_PHYSICAL_DISPLAY_TYPES: usize = 2;
+pub const HWC_NUM_DISPLAY_TYPES: usize = 3;
+
+pub const HWC_BLENDING_NONE: c_int = 0x0100;
+pub const HWC_BLENDING_PREMULT: c_int = 0x0105;
+pub const HWC_BLENDING_COVERAGE: c_int = 0x0405;
+
 #[repr(C)]
 pub struct hwc_composer_device {
     pub common: hw_device,
@@ -181,13 +194,14 @@ impl HwcDevice {
         }
     }
 
-    pub fn get_dimensions(&self) -> (i32, i32) {
-        let attrs: [u32; 3] = [
+    pub fn get_dimensions_and_dpi(&self) -> (i32, i32, i32) {
+        let attrs: [u32; 4] = [
             HWC_DISPLAY_WIDTH,
             HWC_DISPLAY_HEIGHT,
+            HWC_DISPLAY_DPI_X,
             HWC_DISPLAY_NO_ATTRIBUTE,
         ];
-        let mut values: [i32; 3] = [0; 3];
+        let mut values: [i32; 4] = [0; 4];
         unsafe {
             // In theory, we should check the return code.
             // However, there are HALs which implement this wrong.
@@ -199,7 +213,7 @@ impl HwcDevice {
                 values.as_mut_ptr(),
             );
         }
-        (values[0], values[1])
+        (values[0], values[1], values[2] / 1000)
     }
 
     pub fn set_display(&self, enable: bool) {
@@ -226,6 +240,12 @@ impl HwcDevice {
         };
         unsafe {
             ((*self.native).set_power_mode)(self.native, 0, mode);
+        }
+
+        if !enable {
+            unsafe {
+                autosuspend_enable();
+            }
         }
     }
 

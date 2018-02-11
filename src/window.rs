@@ -46,7 +46,7 @@ impl Window {
             alloc_dev = transmute(device);
         }
 
-        let (width, height) = hwc.get_dimensions();
+        let (width, height, _dpi) = hwc.get_dimensions_and_dpi();
 
         let dpy = egl::get_display(egl::EGL_DEFAULT_DISPLAY).unwrap();
 
@@ -76,11 +76,11 @@ impl Window {
         let usage = GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER;
         let native_window = GonkNativeWindow::new(alloc_dev, hwc.native(), width, height, usage);
 
-        let eglwindow =
+        let surf =
             unsafe { egl::create_window_surface(dpy, config, transmute(native_window), &[]) };
 
-        assert!(eglwindow.is_some());
-        let eglwindow = eglwindow.unwrap();
+        assert!(surf.is_some());
+        let surf = surf.unwrap();
 
         let ctx_attr = [egl::EGL_CONTEXT_CLIENT_VERSION, 2, egl::EGL_NONE];
 
@@ -89,7 +89,7 @@ impl Window {
         assert!(ctx.is_some(), "Failed to create a context!");
         let ctx = ctx.unwrap();
 
-        let ret = egl::make_current(dpy, eglwindow, eglwindow, ctx);
+        let ret = egl::make_current(dpy, surf, surf, ctx);
         assert!(ret, "Failed to make current!");
 
         unsafe {
@@ -109,7 +109,7 @@ impl Window {
             native_window: native_window,
             dpy,
             ctx,
-            surf: eglwindow,
+            surf,
             gl,
         };
 

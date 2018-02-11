@@ -175,6 +175,7 @@ extern "C" {
 #[link(name = "suspend")]
 extern "C" {
     pub fn autosuspend_disable();
+    pub fn autosuspend_enable();
 }
 
 extern "C" fn set_swap_interval(_base: *mut ANativeWindow, _interval: c_int) -> c_int {
@@ -449,7 +450,7 @@ impl GonkNativeWindow {
             retire_fence_fd: -1,
             outbuf: ptr::null(),
             outbuf_acquire_fence_fd: -1,
-            flags: 1, /* HWC_GEOMETRY_CHANGED */
+            flags: HWC_GEOMETRY_CHANGED,
             num_hw_layers: 2,
             hw_layers: [
                 hwc_layer {
@@ -465,12 +466,7 @@ impl GonkNativeWindow {
                         right: 0.0,
                         bottom: 0.0,
                     },
-                    display_frame: hwc_rect {
-                        left: 0,
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                    },
+                    display_frame: rect,
                     visible_region_screen: hwc_region {
                         num_rects: 0,
                         rects: ptr::null(),
@@ -478,7 +474,7 @@ impl GonkNativeWindow {
                     acquire_fence_fd: -1,
                     release_fence_fd: -1,
                     plane_alpha: 0xff,
-                    pad: [0, 0, 0],
+                    pad: [0; 3],
                     surface_damage: hwc_region {
                         num_rects: 0,
                         rects: ptr::null(),
@@ -491,7 +487,7 @@ impl GonkNativeWindow {
                     flags: 0,
                     handle: gonkbuf.buffer.handle,
                     transform: 0,
-                    blending: 0,
+                    blending: HWC_BLENDING_NONE,
                     source_crop: hwc_frect {
                         left: 0.0,
                         top: 0.0,
@@ -506,7 +502,7 @@ impl GonkNativeWindow {
                     acquire_fence_fd: fence,
                     release_fence_fd: -1,
                     plane_alpha: 0xff,
-                    pad: [0, 0, 0],
+                    pad: [0; 3],
                     surface_damage: hwc_region {
                         num_rects: 0,
                         rects: ptr::null(),
@@ -516,7 +512,7 @@ impl GonkNativeWindow {
             ],
         };
         unsafe {
-            let mut displays: [*mut hwc_display_contents; 3] =
+            let mut displays: [*mut hwc_display_contents; HWC_NUM_DISPLAY_TYPES] =
                 [&mut list, ptr::null_mut(), ptr::null_mut()];
             let prep_res = ((*self.hwc_dev).prepare)(
                 self.hwc_dev,
