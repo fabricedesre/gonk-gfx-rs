@@ -2,8 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Low level Gonk graphics
+// Low level Gonk graphics using the hardware composer.
 
+use hardware::*;
+use hwc::*;
 use libc::{c_char, c_int, c_void, close, size_t};
 use std::mem::{size_of, transmute, zeroed};
 use std::ptr;
@@ -58,168 +60,16 @@ pub struct ANativeWindow {
     ydpi: f32,
     oem: [isize; 4],
     set_swap_interval: extern "C" fn(*mut ANativeWindow, c_int) -> c_int,
-    //dequeue_buffer_deprecated: extern fn(*mut ANativeWindow, *mut *mut ANativeWindowBuffer) -> c_int,
-    //lock_buffer_deprecated: extern fn(*mut ANativeWindow, *mut ANativeWindowBuffer) -> c_int,
-    //queue_buffer_deprecated: extern fn(*mut ANativeWindow, *mut ANativeWindowBuffer) -> c_int,
     dequeue_buffer_deprecated: *const c_void,
     lock_buffer_deprecated: *const c_void,
     queue_buffer_deprecated: *const c_void,
     query: extern "C" fn(*const ANativeWindow, c_int, *mut c_int) -> c_int,
     perform: unsafe extern "C" fn(*mut ANativeWindow, c_int, ...) -> c_int,
-    //cancel_buffer_deprecated: extern fn(*mut ANativeWindow, *mut ANativeWindowBuffer) -> c_int,
     cancel_buffer_deprecated: *const c_void,
     dequeue_buffer:
         extern "C" fn(*mut ANativeWindow, *mut *mut ANativeWindowBuffer, *mut c_int) -> c_int,
     queue_buffer: extern "C" fn(*mut ANativeWindow, *mut ANativeWindowBuffer, c_int) -> c_int,
     cancel_buffer: extern "C" fn(*mut ANativeWindow, *mut ANativeWindowBuffer, c_int) -> c_int,
-}
-
-// hardware/libhardware/include/hardware/hardware.h
-
-#[repr(C)]
-pub struct hw_module_methods {
-    pub open: extern "C" fn(*const hw_module, *const c_char, *mut *const hw_device) -> c_int,
-}
-
-#[repr(C)]
-pub struct hw_module {
-    tag: u32,
-    module_api_version: u16,
-    hal_api_version: u16,
-    id: *const c_char,
-    name: *const c_char,
-    author: *const c_char,
-    pub methods: *mut hw_module_methods,
-    dso: *mut u32,
-    reserved: [u32; (32 - 7)],
-}
-
-#[repr(C)]
-pub struct hw_device {
-    tag: u32,
-    pub version: u32,
-    module: *mut hw_module,
-    reserved: [u32; 12],
-    close: extern "C" fn(*mut hw_device) -> c_int,
-}
-
-#[link(name = "hardware")]
-extern "C" {
-    pub fn hw_get_module(id: *const c_char, module: *mut *const hw_module) -> c_int;
-}
-
-// hardware/libhardware/include/hardware/hwcomposer.h
-
-#[repr(C)]
-pub struct hwc_color {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct hwc_rect {
-    left: c_int,
-    top: c_int,
-    right: c_int,
-    bottom: c_int,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct hwc_frect {
-    left: f32,
-    top: f32,
-    right: f32,
-    bottom: f32,
-}
-
-#[repr(C)]
-pub struct hwc_region {
-    num_rects: i32,
-    rects: *const hwc_rect,
-}
-
-const HWC_FRAMEBUFFER: i32 = 0;
-const HWC_OVERLAY: i32 = 1;
-const HWC_BACKGROUND: i32 = 2;
-const HWC_FRAMEBUFFER_TARGET: i32 = 3;
-const HWC_BLIT: i32 = 4;
-
-const HWC_SKIP_LAYER: u32 = 1;
-
-#[repr(C)]
-pub struct hwc_layer {
-    composition_type: i32,
-    hints: u32,
-    flags: u32,
-    handle: *const native_handle,
-    transform: u32,
-    blending: i32,
-    source_crop: hwc_frect, // If HWC 1.3, then this takes floats
-    display_frame: hwc_rect,
-    visible_region_screen: hwc_region,
-    acquire_fence_fd: c_int,
-    release_fence_fd: c_int,
-    plane_alpha: u8,
-    pad: [u8; 3],
-    surface_damage: hwc_region,
-    reserved: [u8; (96 - 84)],
-}
-
-#[repr(C)]
-pub struct hwc_display_contents {
-    retire_fence_fd: c_int,
-    // HWC 1.0 not supported
-    outbuf: *const u32,
-    outbuf_acquire_fence_fd: c_int,
-    flags: u32,
-    num_hw_layers: size_t,
-    hw_layers: [hwc_layer; 2],
-}
-
-#[repr(C)]
-pub struct hwc_procs {
-    invalidate: extern "C" fn(*const hwc_procs),
-    vsync: extern "C" fn(*const hwc_procs, c_int, i64),
-    hotplug: extern "C" fn(*const hwc_procs, c_int, c_int),
-}
-
-pub const HWC_DISPLAY_NO_ATTRIBUTE: u32 = 0;
-pub const HWC_DISPLAY_VSYNC_PERIOD: u32 = 1;
-pub const HWC_DISPLAY_WIDTH: u32 = 2;
-pub const HWC_DISPLAY_HEIGHT: u32 = 3;
-pub const HWC_DISPLAY_DPI_X: u32 = 4;
-pub const HWC_DISPLAY_DPI_Y: u32 = 5;
-
-pub const HWC_POWER_MODE_OFF: c_int = 0;
-pub const HWC_POWER_MODE_DOZE: c_int = 1;
-pub const HWC_POWER_MODE_NORMAL: c_int = 2;
-pub const HWC_POWER_MODE_DOZE_SUSPEND: c_int = 3;
-
-pub fn hwc_api_version(maj: u32, min: u32) -> u32 {
-    // HARDWARE_MAKE_API_VERSION_2, from Android hardware.h
-    (((maj & 0xff) << 24) | ((min & 0xff) << 16) | (1 & 0xffff))
-}
-
-#[repr(C)]
-pub struct hwc_composer_device {
-    pub common: hw_device,
-    prepare:
-        extern "C" fn(*mut hwc_composer_device, size_t, *mut *mut hwc_display_contents) -> c_int,
-    set: extern "C" fn(*mut hwc_composer_device, size_t, *mut *mut hwc_display_contents) -> c_int,
-    event_control: extern "C" fn(*mut hwc_composer_device, c_int, c_int, c_int) -> c_int,
-    pub set_power_mode: extern "C" fn(*mut hwc_composer_device, c_int, c_int) -> c_int,
-    query: extern "C" fn(*mut hwc_composer_device, c_int, *mut c_int) -> c_int,
-    register_procs: extern "C" fn(*mut hwc_composer_device, *const hwc_procs),
-    dump: extern "C" fn(*mut hwc_composer_device, *const c_char, c_int),
-    get_display_configs:
-        extern "C" fn(*mut hwc_composer_device, c_int, *mut u32, *mut size_t) -> c_int,
-    pub get_display_attributes:
-        extern "C" fn(*mut hwc_composer_device, c_int, u32, *const u32, *mut i32) -> c_int,
-    reserved: [*mut c_void; 4],
 }
 
 // system/core/include/system/graphics.h
@@ -344,9 +194,10 @@ const NATIVE_WINDOW_DEFAULT_DATASPACE: c_int = 12;
 const NATIVE_WINDOW_BUFFER_AGE: c_int = 13;
 
 extern "C" fn query(base: *const ANativeWindow, what: c_int, value: *mut c_int) -> c_int {
-    debug!("query {}", what);
+    info!("query {}", what);
     unsafe {
         let window: &GonkNativeWindow = transmute(base);
+
         match what {
             NATIVE_WINDOW_WIDTH => {
                 *value = window.width;
@@ -378,10 +229,6 @@ extern "C" fn query(base: *const ANativeWindow, what: c_int, value: *mut c_int) 
                 0
             }
             NATIVE_WINDOW_CONSUMER_USAGE_BITS => {
-                info!(
-                    "Querying NATIVE_WINDOW_CONSUMER_USAGE_BITS -> {}",
-                    window.usage
-                );
                 *value = window.usage;
                 0
             }
@@ -463,7 +310,7 @@ extern "C" fn cancel_buffer(
     buf: *mut ANativeWindowBuffer,
     fence: c_int,
 ) -> c_int {
-    debug!("cancel_buffer");
+    info!("cancel_buffer");
     unsafe {
         let window: &mut GonkNativeWindow = transmute(base);
         for idx in 0..window.bufs.len() {
@@ -491,7 +338,7 @@ extern "C" fn set_usage(window: *mut GonkNativeWindow, usage: c_int) -> c_int {
 }
 
 extern "C" fn set_format(window: *mut GonkNativeWindow, format: c_int) -> c_int {
-    debug!("Setting format to {}", format);
+    info!("Setting format to {}", format);
     unsafe {
         (*window).format = format;
     }
@@ -499,35 +346,33 @@ extern "C" fn set_format(window: *mut GonkNativeWindow, format: c_int) -> c_int 
 }
 
 extern "C" fn set_transform(_: *mut GonkNativeWindow, _: c_int) -> c_int {
-    debug!("set_transform");
+    info!("set_transform");
     0
 }
 
 extern "C" fn set_dimensions(_: *mut GonkNativeWindow, width: c_int, height: c_int) -> c_int {
-    debug!("set_dimensions to {}x{}", width, height);
+    info!("set_dimensions to {}x{}", width, height);
     0
 }
 
-#[allow(unused_variables)]
-extern "C" fn api_connect(window: *mut GonkNativeWindow, api: c_int) -> c_int {
-    debug!("api_connect");
+extern "C" fn api_connect(_window: *mut GonkNativeWindow, _api: c_int) -> c_int {
+    info!("api_connect");
     0
 }
 
-#[allow(unused_variables)]
-extern "C" fn api_disconnect(window: *mut GonkNativeWindow, api: c_int) -> c_int {
-    debug!("api_disconnect");
+extern "C" fn api_disconnect(_window: *mut GonkNativeWindow, _api: c_int) -> c_int {
+    info!("api_disconnect");
     0
 }
 
 extern "C" fn gnw_inc_ref(base: *mut ANativeBase) {
-    debug!("gnw_inc_ref");
+    info!("gnw_inc_ref");
     let win: &mut GonkNativeWindow = unsafe { transmute(base) };
     win.count += 1;
 }
 
 extern "C" fn gnw_dec_ref(base: *mut ANativeBase) {
-    debug!("gnw_dec_ref");
+    info!("gnw_dec_ref");
     let win: &mut GonkNativeWindow = unsafe { transmute(base) };
     win.count -= 1;
     if win.count == 0 {
@@ -593,12 +438,7 @@ impl GonkNativeWindow {
 
     fn draw(&mut self, buf: *mut ANativeWindowBuffer, fence: c_int) -> c_int {
         let gonkbuf: &mut GonkNativeWindowBuffer = unsafe { transmute(buf) };
-        info!(
-            "draw {}x{} {}",
-            gonkbuf.buffer.width,
-            gonkbuf.buffer.height,
-            size_of::<hwc_layer>() as i32,
-        );
+        info!("draw {}x{}", gonkbuf.buffer.width, gonkbuf.buffer.height);
         let rect = hwc_rect {
             left: 0,
             top: 0,
@@ -676,7 +516,8 @@ impl GonkNativeWindow {
             ],
         };
         unsafe {
-            let mut displays: [*mut hwc_display_contents; 1] = [&mut list];
+            let mut displays: [*mut hwc_display_contents; 3] =
+                [&mut list, ptr::null_mut(), ptr::null_mut()];
             let prep_res = ((*self.hwc_dev).prepare)(
                 self.hwc_dev,
                 displays.len() as size_t,
@@ -697,6 +538,7 @@ impl GonkNativeWindow {
     }
 
     pub fn alloc_buffers(&mut self) {
+        info!("alloc_buffers");
         self.bufs[0] = Some(GonkNativeWindowBuffer::new(
             self.alloc_dev,
             self.width,

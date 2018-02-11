@@ -5,17 +5,20 @@
 //! A windowing implementation using Gonk interfaces.
 
 use egl::{self, EGLContext, EGLDisplay, EGLSurface};
+use hardware::hw_get_module;
+use hwc::HwcDevice;
 use gleam::gl::{self, Gl};
+use gonk_gfx::*;
 use std::ffi::CString;
 use std::mem::transmute;
 use std::ptr;
 use std::rc::Rc;
-use gonk_gfx::*;
 
 /// The type of a window.
 pub struct Window {
     pub width: u32,
     pub height: u32,
+    hwc: HwcDevice,
     pub native_window: *mut GonkNativeWindow,
     pub dpy: EGLDisplay,
     pub ctx: EGLContext,
@@ -26,52 +29,9 @@ pub struct Window {
 impl Window {
     /// Creates a new window.
     pub fn new() -> Rc<Window> {
-        let mut hwc_mod = ptr::null();
-        unsafe {
-            let cstr = CString::new("hwcomposer").unwrap();
-            let ret = hw_get_module(cstr.as_ptr(), &mut hwc_mod);
-            assert!(ret == 0, "Failed to get HWC module!");
-        }
-
-        let hwc_device: *mut hwc_composer_device;
-        unsafe {
-            let mut device = ptr::null();
-            let cstr = CString::new("composer").unwrap();
-            let ret = ((*(*hwc_mod).methods).open)(hwc_mod, cstr.as_ptr(), &mut device);
-            assert!(ret == 0, "Failed to get HWC device!");
-            hwc_device = transmute(device);
-            // Require HWC 1.1 or newer
-            // XXX add HAL version function/macro
-            let version = (*hwc_device).common.version;
-            let mut msg = format!("unknown ({})", version);
-            for i in 1..5 {
-                if version == hwc_api_version(1, i) {
-                    msg = format!("1.{}", i);
-                }
-            }
-            println!("Using hwc api: {}", msg);
-
-            assert!((*hwc_device).common.version > (1 << 8), "HWC too old!");
-        }
-
-        let attrs: [u32; 4] = [
-            HWC_DISPLAY_WIDTH,
-            HWC_DISPLAY_HEIGHT,
-            HWC_DISPLAY_DPI_X,
-            HWC_DISPLAY_NO_ATTRIBUTE,
-        ];
-        let mut values: [i32; 4] = [0, 0, 0, 0];
-        unsafe {
-            // In theory, we should check the return code.
-            // However, there are HALs which implement this wrong.
-            let _ = ((*hwc_device).get_display_attributes)(
-                hwc_device,
-                0,
-                0,
-                attrs.as_ptr(),
-                values.as_mut_ptr(),
-            );
-        }
+        let hwc = HwcDevice::new();
+        assert!(hwc.is_some(), "Failed to get the HWC device");
+        let hwc = hwc.unwrap();
 
         let mut gralloc_mod = ptr::null();
         let alloc_dev: *mut alloc_device;
@@ -86,8 +46,8 @@ impl Window {
             alloc_dev = transmute(device);
         }
 
-        let width = values[0];
-        let height = values[1];
+        let (width, height) = hwc.get_dimensions();
+
         let dpy = egl::get_display(egl::EGL_DEFAULT_DISPLAY).unwrap();
 
         let mut major: i32 = 0;
@@ -114,7 +74,7 @@ impl Window {
         info!("Creating {}x{} native window", width, height);
 
         let usage = GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER;
-        let native_window = GonkNativeWindow::new(alloc_dev, hwc_device, width, height, usage);
+        let native_window = GonkNativeWindow::new(alloc_dev, hwc.native(), width, height, usage);
 
         let eglwindow =
             unsafe { egl::create_window_surface(dpy, config, transmute(native_window), &[]) };
@@ -124,8 +84,7 @@ impl Window {
 
         let ctx_attr = [egl::EGL_CONTEXT_CLIENT_VERSION, 2, egl::EGL_NONE];
 
-        let ctx =
-            unsafe { egl::create_context(dpy, config, transmute(egl::EGL_NO_CONTEXT), &ctx_attr) };
+        let ctx = egl::create_context(dpy, config, egl::EGL_NO_CONTEXT, &ctx_attr);
 
         assert!(ctx.is_some(), "Failed to create a context!");
         let ctx = ctx.unwrap();
@@ -135,9 +94,8 @@ impl Window {
 
         unsafe {
             (*native_window).alloc_buffers();
-            autosuspend_disable();
-            ((*hwc_device).set_power_mode)(hwc_device, 0, HWC_POWER_MODE_NORMAL);
         }
+        hwc.set_display(true);
 
         let gl = unsafe { gl::GlesFns::load_with(|s| egl::get_proc_address(s) as *const _) };
 
@@ -147,11 +105,12 @@ impl Window {
         let window = Window {
             width: width as u32,
             height: height as u32,
+            hwc,
             native_window: native_window,
-            dpy: dpy,
-            ctx: ctx,
+            dpy,
+            ctx,
             surf: eglwindow,
-            gl: gl,
+            gl,
         };
 
         Rc::new(window)
@@ -170,5 +129,6 @@ impl Drop for Window {
         unsafe {
             ((*self.native_window).window.common.dec_ref)(&mut (*self.native_window).window.common);
         }
+        self.hwc.set_display(false);
     }
 }
