@@ -47,6 +47,14 @@ impl Window {
             egl::EGL_WINDOW_BIT,
             egl::EGL_RENDERABLE_TYPE,
             egl::EGL_OPENGL_ES2_BIT,
+            egl::EGL_RED_SIZE,
+            8,
+            egl::EGL_GREEN_SIZE,
+            8,
+            egl::EGL_BLUE_SIZE,
+            8,
+            egl::EGL_ALPHA_SIZE,
+            8,
             egl::EGL_NONE,
         ];
 

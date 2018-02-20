@@ -7,7 +7,6 @@
 
 extern crate egl;
 extern crate errno;
-extern crate euclid;
 extern crate gleam;
 extern crate libc;
 #[macro_use]
