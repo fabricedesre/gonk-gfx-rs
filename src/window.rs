@@ -15,6 +15,7 @@ use std::rc::Rc;
 pub struct Window {
     pub width: i32,
     pub height: i32,
+    pub dpi: i32,
     hwc: HwcDevice,
     pub native_window: *mut GonkNativeWindow,
     pub dpy: EGLDisplay,
@@ -30,7 +31,7 @@ impl Window {
         assert!(hwc.is_some(), "Failed to get the HWC device");
         let hwc = hwc.unwrap();
 
-        let (width, height, _dpi) = hwc.get_dimensions_and_dpi();
+        let (width, height, dpi) = hwc.get_dimensions_and_dpi();
 
         let dpy = egl::get_display(egl::EGL_DEFAULT_DISPLAY).unwrap();
 
@@ -97,6 +98,7 @@ impl Window {
         let window = Window {
             width,
             height,
+            dpi,
             hwc,
             native_window,
             dpy,
