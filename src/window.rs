@@ -56,6 +56,8 @@ impl Window {
             8,
             egl::EGL_ALPHA_SIZE,
             8,
+            egl::EGL_DEPTH_SIZE,
+            24,
             egl::EGL_NONE,
         ];
 
