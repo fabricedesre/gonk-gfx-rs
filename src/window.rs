@@ -87,6 +87,8 @@ impl Window {
         let ret = egl::make_current(dpy, surf, surf, ctx);
         assert!(ret, "Failed to make current!");
 
+        egl::swap_interval(dpy, 1);
+
         unsafe {
             (*native_window).alloc_buffers();
         }
