@@ -8,9 +8,11 @@ extern crate gonk_gfx;
 extern crate log;
 
 use gonk_gfx::window;
+use android_logger::Filter;
 
+#[allow(deprecated)] // for sleep_ms()
 fn main() {
-    android_logger::init_once(log::LogLevel::Info);
+    android_logger::init_once(Filter::default().with_min_level(log::Level::Info));
 
     info!("About to create window");
 
